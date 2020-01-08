@@ -1,9 +1,11 @@
 {-# LANGUAGE NumDecimals #-}
 import Control.Parallel
+import Control.Parallel.Strategies
 import Control.Monad
-import Data.DList as D
+import Data.DList as D hiding (concat)
 import Data.Function
 import System.TimeIt
+import Data.List.Split
 
 swapNodesNoTR :: Int -> [a] -> [a]
 swapNodesNoTR _ [] = []
@@ -52,16 +54,38 @@ pswapNodes p k z = pswapNodes' p z empty & toList
        in 
          b `par` (acc `par` (pswapNodes' (p-1) b acc'))
 
+moreFuncSwap :: Int -> [a] -> [a]
+moreFuncSwap k z = 
+  toList $ append nl nr
+    where
+      len = length z
+      (l,r) = splitAt (len - mod len k) z
+      nl = fromList $ concat . fmap reverse . chunksOf k $ l
+      nr = fromList r
+
+-- Thank you -- https://www.reddit.com/user/StephenSwat/ --
+kGroupReverse :: Int -> [a] -> [a]
+kGroupReverse n = concat . fmap (\l -> if length l == n then reverse l else l) . chunksOf n
+
+pkGroupReverse :: (NFData a) => Int -> [a] -> [a]
+pkGroupReverse n = 
+  concat . pmap  . chunksOf n
+    where
+      pmap = parMap rdeepseq (\l -> if length l == n then reverse l else l) 
+
 main :: IO ()
 main = do
-  let algorithm = 3
+  let algorithm = 7
       k = 1e6
-      p = 128
+      p = 16
       l = [1..1e8]
       f = case algorithm of 
             1 -> swapNodes k l
             2 -> swapNodesNoTR k l
             3 -> pswapNodesNoTR p k l
             4 -> pswapNodes p k l
+            5 -> moreFuncSwap k l
+            6 -> kGroupReverse k l
+            7 -> pkGroupReverse k l :: [Int]
 
   f & length & print & timeIt
