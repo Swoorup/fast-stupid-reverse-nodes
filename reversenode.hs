@@ -69,9 +69,10 @@ kGroupReverse n = concat . fmap (\l -> if length l == n then reverse l else l) .
 
 pkGroupReverse :: (NFData a) => Int -> [a] -> [a]
 pkGroupReverse n = 
-  concat . pmap  . chunksOf n
+  concat . pmap . chunksOf n
     where
-      pmap = parMap rdeepseq (\l -> if length l == n then reverse l else l) 
+      -- pmap = parMap rdeepseq (\l -> if length l == n then reverse l else l) 
+      pmap ll = withStrategy (parBuffer 4 rdeepseq) (fmap (\l -> if length l == n then reverse l else l) ll)
 
 main :: IO ()
 main = do
