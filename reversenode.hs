@@ -71,12 +71,36 @@ pkGroupReverse :: (NFData a) => Int -> [a] -> [a]
 pkGroupReverse n = 
   concat . pmap . chunksOf n
     where
-      -- pmap = parMap rdeepseq (\l -> if length l == n then reverse l else l) 
       pmap ll = withStrategy (parBuffer 4 rdeepseq) (fmap (\l -> if length l == n then reverse l else l) ll)
 
+-- u/djletch --
+djletch :: Int -> [a] -> [a]
+djletch n = concat . go n []
+  where
+    go _ [] [] = []
+    go 0 acc xs = acc : go n [] xs
+    go _ acc [] = [reverse acc]
+    go i acc (x:xs) = go (i-1) (x:acc) xs
+
+-- u/tripa --
+tripa :: Int -> [a] -> [a]
+tripa k xs = go xs k [] where
+  go xs 0 acc = acc ++ go xs k []
+  go (x:xs) i acc = go xs (i-1) (x:acc)
+  go [] _ acc = reverse acc
+
+tripa' :: Int -> [a] -> [a]
+tripa' k xs = go xs k where
+  go xs k = fst (fix (f xs k . snd))
+  f    xs  0 acc = (acc,go xs k)
+  f (x:xs) i acc = f xs (i-1) (x:acc)
+  f   []   _ acc = (reverse acc,[])
+                -- that "reverse" is the next optimize
+                -- target should k get too big
+                --
 main :: IO ()
 main = do
-  let algorithm = 7
+  let algorithm = 10
       k = 1e6
       p = 16
       l = [1..1e8]
@@ -88,5 +112,8 @@ main = do
             5 -> moreFuncSwap k l
             6 -> kGroupReverse k l
             7 -> pkGroupReverse k l :: [Int]
+            8 -> djletch k l :: [Int]
+            9 -> tripa k l
+            10 -> tripa' k l
 
   f & length & print & timeIt
